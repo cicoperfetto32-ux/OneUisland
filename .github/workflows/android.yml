@@ -27,3 +27,11 @@ jobs:
 
       - name: Build Android project
         run: ./gradlew build
+      - name: Build APK
+        run: ./gradlew assembleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: OneUisland-APK
+          path: app/build/outputs/apk/debug/*.apk
