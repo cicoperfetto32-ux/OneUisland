@@ -69,7 +69,7 @@ final class MediaSource {
         Tracked best = null;
         long now = SystemClock.uptimeMillis();
         for (Tracked t : tracked.values()) {
-            if (!t.hasContent()) continue;
+            if (!t.hasContent() || VoiceLevels.PACKAGE.equals(t.controller.getPackageName())) continue;
             if (t.isPlaying()) {
                 if (best == null || !best.isPlaying() || t.lastActive > best.lastActive) best = t;
             } else if (t.lastActive > 0 && now - t.lastActive < PAUSED_TIMEOUT_MS) {
@@ -94,6 +94,7 @@ final class MediaSource {
 
     IslandItem itemForSession(MediaSession.Token token) {
         Tracked t = tracked.get(token);
+        if (t != null && VoiceLevels.PACKAGE.equals(t.controller.getPackageName())) return null;
         return t != null && t.hasContent() ? t.item() : null;
     }
 

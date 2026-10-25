@@ -4,5 +4,6 @@
     <string name="xposed_description">Dynamic Island in the style of ColorOS / HyperOS: replaces the One UI Now Bar status bar capsule.</string>
     <string-array name="xposed_scope">
         <item>com.android.systemui</item>
+        <item>com.sec.android.app.voicenote</item>
     </string-array>
 </resources>

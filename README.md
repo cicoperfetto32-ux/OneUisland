@@ -18,6 +18,8 @@ Get the ready-made APK from [Releases](../../releases).
 - Closing an app flies it into the island, using the One UI Home animation.
 - Status bar icons fade out smoothly when the island covers them.
 - Flashlight island: tap the flashlight to switch it on or off, drag along the beam to pick one of the brightness steps or slide to the flashlight to turn it off. The same card replaces the flashlight notification in the shade.
+- Samsung Voice Recorder island: a red waveform that scrolls from right to left with the recording timer, pause and stop buttons in the card, and a short "saved" check after stopping. With Voice Recorder added to the module scope in LSPosed the waveform follows the real microphone level.
+- Stopwatch shows milliseconds in the island, the card and the shade. Metric notifications show the chip text the app sends.
 - Short alerts: Do Not Disturb, sound / vibrate / mute, low battery (20% and 10%) and headphone battery (AirPods via LibrePods, Galaxy Buds, Fast Pair).
 - Live notifications in the shade are styled as dark glass island cards: light text, a thin rim and a solid background when blur is off. App layouts, expansion and actions are kept. Regular notifications and the lock screen keep the system look.
 

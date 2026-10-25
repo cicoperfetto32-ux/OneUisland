@@ -201,10 +201,30 @@ public final class IslandController implements IslandView.Host, IslandWindow.Lis
         return media.itemForSession(token);
     }
 
+    private void addSavedRecording(List<IslandItem> items) {
+        VoiceLevels levels = VoiceLevels.get();
+        long now = SystemClock.uptimeMillis();
+        if (!levels.savedRecently(now)) return;
+        for (IslandItem i : items) {
+            if (i.recorder && levels.recording()) return;
+        }
+        items.removeIf(i -> i.recorder);
+        IslandItem it = new IslandItem("voice:saved");
+        it.kind = IslandItem.Kind.RECORDING;
+        it.recorder = true;
+        it.recorderSaved = true;
+        it.packageName = VoiceLevels.PACKAGE;
+        it.accent = 0xFFFFFFFF;
+        it.postTime = Long.MAX_VALUE;
+        items.add(it);
+        main.postDelayed(this::requestRefresh, Math.max(16, levels.savedUntil() - now + 20));
+    }
+
     private void start() {
         media.start();
         alerts.start();
         torch.start();
+        VoiceLevels.get().register(ctx, () -> main.post(this::requestRefresh));
         IslandSettings.watch(ctx, () -> {
             if (view != null) view.onSettingsChanged();
             updateGeometry();
@@ -343,6 +363,7 @@ public final class IslandController implements IslandView.Host, IslandWindow.Lis
             cast.collect(items);
             if (torch.available()) items.removeIf(FlashlightSource::isSystemTorchItem);
             torch.collect(items, view.isExpanded());
+            addSavedRecording(items);
         } catch (Throwable t) {
             XLog.e("collect failed", t);
         }

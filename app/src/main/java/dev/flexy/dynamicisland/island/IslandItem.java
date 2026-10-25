@@ -132,6 +132,8 @@ public final class IslandItem {
     public int ringPercent = -1;
 
     public boolean torch;
+    public boolean recorder;
+    public boolean recorderSaved;
     public boolean torchOn;
     public int torchLevel = 1;
     public int torchMax = 1;
@@ -173,6 +175,8 @@ public final class IslandItem {
                 && pulsingDot == o.pulsingDot
                 && pillColor == o.pillColor
                 && torch == o.torch
+                && recorder == o.recorder
+                && recorderSaved == o.recorderSaved
                 && trailingColor == o.trailingColor
                 && hasTeams() == o.hasTeams();
     }

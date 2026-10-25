@@ -353,14 +353,14 @@ final class ShadeLiveCards {
             if (remote != null && remoteSource == rv) return remote;
             if (remote != null && dev.flexy.dynamicisland.island.IslandView.canReapply(remoteSource, rv)) {
                 try {
-                    rv.reapply(getContext(), remote);
+                    rv.reapply(IslandView.nightContext(getContext()), remote);
                     remoteSource = rv;
                     return remote;
                 } catch (Throwable ignored) {
                 }
             }
             if (remote != null) removeView(remote);
-            remote = rv.apply(getContext(), this);
+            remote = rv.apply(IslandView.nightContext(getContext()), this);
             remoteSource = rv;
             LayoutParams lp = new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT);
             lp.setMargins(remotePad, remotePad, remotePad, remotePad);
@@ -424,7 +424,11 @@ final class ShadeLiveCards {
                     && getWindowVisibility() == VISIBLE && (current.trailing == IslandItem.Trailing.CHRONOMETER
                     || dev.flexy.dynamicisland.island.IslandView.hasRunningMetric(current)
                     || current.kind == IslandItem.Kind.TIMER || current.kind == IslandItem.Kind.RECORDING)) {
-                postDelayed(tick, 1000 - SystemClock.uptimeMillis() % 1000);
+                if ((current.recorder && !current.recorderSaved && (current.trailing == IslandItem.Trailing.CHRONOMETER || dev.flexy.dynamicisland.island.VoiceLevels.get().live(SystemClock.uptimeMillis()))) || (current.chronoMillis && current.trailing == IslandItem.Trailing.CHRONOMETER)) {
+                    postOnAnimation(tick);
+                } else {
+                    postDelayed(tick, 1000 - SystemClock.uptimeMillis() % 1000);
+                }
             }
         }
 

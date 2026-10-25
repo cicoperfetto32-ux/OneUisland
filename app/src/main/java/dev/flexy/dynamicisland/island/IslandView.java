@@ -313,19 +313,37 @@ public final class IslandView extends View implements Choreographer.FrameCallbac
         if (v != null && src == item.remoteView) return v;
         if (v != null && canReapply(src, item.remoteView)) {
             try {
-                item.remoteView.reapply(getContext(), v);
+                item.remoteView.reapply(nightContext(getContext()), v);
                 remoteSources.put(item.key, item.remoteView);
                 return v;
             } catch (Throwable ignored) {
             }
         }
         if (v != null) remoteLayer.removeView(v);
-        v = item.remoteView.apply(getContext(), new android.widget.FrameLayout(getContext()));
+        android.content.Context night = nightContext(getContext());
+        v = item.remoteView.apply(night, new android.widget.FrameLayout(night));
         v.setVisibility(GONE);
         remoteLayer.addView(v, new android.widget.FrameLayout.LayoutParams(1, 1));
         remoteViews.put(item.key, v);
         remoteSources.put(item.key, item.remoteView);
         return v;
+    }
+
+    private static final java.util.Map<android.content.Context, Object[]> NIGHT_CONTEXTS = new java.util.WeakHashMap<>();
+
+    public static android.content.Context nightContext(android.content.Context base) {
+        android.content.res.Configuration cfg = base.getResources().getConfiguration();
+        if ((cfg.uiMode & android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES) {
+            return base;
+        }
+        Object[] cached = NIGHT_CONTEXTS.get(base);
+        if (cached != null && cfg.equals(cached[0])) return (android.content.Context) cached[1];
+        android.content.res.Configuration night = new android.content.res.Configuration(cfg);
+        night.uiMode = (cfg.uiMode & ~android.content.res.Configuration.UI_MODE_NIGHT_MASK)
+                | android.content.res.Configuration.UI_MODE_NIGHT_YES;
+        android.content.Context out = base.createConfigurationContext(night);
+        NIGHT_CONTEXTS.put(base, new Object[]{new android.content.res.Configuration(cfg), out});
+        return out;
     }
 
     public static boolean canReapply(android.widget.RemoteViews old, android.widget.RemoteViews next) {
@@ -1203,8 +1221,11 @@ public final class IslandView extends View implements Choreographer.FrameCallbac
         need |= toggleAnimating();
         need |= torchAnimating();
         if (bubbleIn != null) need |= bubbleIn.content.item.pulsingDot || runningStopwatch(bubbleIn.content.item);
+        if (mainIn != null && recAnimating(mainIn.content.item)) need = true;
+        if (bubbleIn != null && recAnimating(bubbleIn.content.item)) need = true;
         for (Card c : cards) {
             need |= c.item.pulsingDot;
+            need |= recAnimating(c.item) || runningStopwatch(c.item);
             need |= mode == Mode.EXPANDED && (c.item.isMedia || c.item.iconRight);
         }
         if (mainIn != null && mainIn.content.item.isMedia) {
@@ -1900,6 +1921,91 @@ public final class IslandView extends View implements Choreographer.FrameCallbac
         }
     }
 
+    private float recWaveWidth() {
+        return dp(56);
+    }
+
+    private float checkSize() {
+        return dp(19);
+    }
+
+    private final java.util.HashMap<String, Long> recFrozen = new java.util.HashMap<>();
+
+    private boolean recAnimating(IslandItem item) {
+        return item.recorder && !item.recorderSaved
+                && (VoiceLevels.get().live(now()) || item.trailing == IslandItem.Trailing.CHRONOMETER);
+    }
+
+    private void drawRecWave(Canvas c, IslandItem item, float left, float midY, float width, float maxH, float alpha, boolean card) {
+        VoiceLevels levels = VoiceLevels.get();
+        boolean saved = item.recorderSaved;
+        long now = now();
+        boolean synth = !saved && !levels.live(now) && !levels.recording();
+        long t0;
+        if (synth) {
+            if (item.trailing == IslandItem.Trailing.CHRONOMETER) recFrozen.put(item.key, now);
+            Long frozen = recFrozen.get(item.key);
+            t0 = frozen != null ? frozen : now;
+        } else {
+            t0 = levels.renderTime(now, saved);
+        }
+        float bw = dp(card ? 2.6f : 2.2f);
+        float gap = dp(card ? 2.8f : 2.2f);
+        float pitch = bw + gap;
+        float minH = bw;
+        int color = saved ? 0xFFFFFFFF : OaSource.RECORDER_RED;
+        float right = left + width;
+        long step = VoiceLevels.STEP_MS;
+        long base = Math.floorDiv(t0, step) * step;
+        float frac = (t0 - base) / (float) step;
+        float headX = right - bw;
+        if (card) {
+            headX = left + width * 0.55f;
+            for (int j = 0; ; j++) {
+                float dx = headX + (j + 1 - frac) * pitch;
+                if (dx > right) break;
+                float fade = clamp01((right - dx - bw) / pitch);
+                if (fade <= 0f) continue;
+                fillPaint.setColor(Colors.withAlpha(0x55FFFFFF, alpha * fade));
+                c.drawCircle(dx + bw / 2f, midY, bw / 2f, fillPaint);
+            }
+        }
+        for (int k = 0; ; k++) {
+            float bx = headX - (k + frac) * pitch;
+            if (bx + bw < left) break;
+            float fade = clamp01((bx - left) / pitch);
+            if (k == 0 && !card) fade *= clamp01(frac * 2f);
+            if (fade <= 0f) continue;
+            long t = base - k * step;
+            float level = synth ? VoiceLevels.synthetic(t) : levels.levelAt(t);
+            if (saved) level *= 0.35f;
+            float h = minH + (maxH - minH) * clamp01(level);
+            fillPaint.setColor(Colors.withAlpha(color, alpha * fade));
+            tmpRect.set(bx, midY - h / 2f, bx + bw, midY + h / 2f);
+            c.drawRoundRect(tmpRect, bw / 2f, bw / 2f, fillPaint);
+        }
+    }
+
+    private final Path checkPath = new Path();
+
+    private void drawCheck(Canvas c, float cx, float cy, float r, float alpha) {
+        float stroke = dp(1.6f);
+        Paint.Cap cap = strokePaint.getStrokeCap();
+        Paint.Join join = strokePaint.getStrokeJoin();
+        strokePaint.setStrokeWidth(stroke);
+        strokePaint.setColor(Colors.withAlpha(0xFFFFFFFF, alpha));
+        c.drawCircle(cx, cy, r - stroke / 2f, strokePaint);
+        strokePaint.setStrokeCap(Paint.Cap.ROUND);
+        strokePaint.setStrokeJoin(Paint.Join.ROUND);
+        checkPath.rewind();
+        checkPath.moveTo(cx - r * 0.36f, cy + r * 0.02f);
+        checkPath.lineTo(cx - r * 0.1f, cy + r * 0.3f);
+        checkPath.lineTo(cx + r * 0.4f, cy - r * 0.3f);
+        c.drawPath(checkPath, strokePaint);
+        strokePaint.setStrokeCap(cap);
+        strokePaint.setStrokeJoin(join);
+    }
+
     private void drawRing(Canvas c, float x, float y, float radius, float progress, int color, float alpha) {
         float stroke = dp(2.6f);
         strokePaint.setStrokeWidth(stroke);
@@ -1964,6 +2070,9 @@ public final class IslandView extends View implements Choreographer.FrameCallbac
                 }
                 scoreW = text == null ? 0f : trailPaint.measureText(text);
                 w = scoreW + (text == null ? 0f : innerGap) + leadSize;
+            } else if (item.recorderSaved) {
+                text = null;
+                w = checkSize();
             } else {
                 if (text != null && item.trailing == IslandItem.Trailing.TEXT) {
                     text = TextUtils.ellipsize(text, trailPaint, maxTrail, TextUtils.TruncateAt.END).toString();
@@ -1992,19 +2101,24 @@ public final class IslandView extends View implements Choreographer.FrameCallbac
             return true;
         }
 
+        private float leadWidth() {
+            return item.recorder ? recWaveWidth() : leadSize;
+        }
+
         private float maxTrailingWidth() {
             if (holeD > 0) return Math.max(dp(20), (maxPillW - holeD) / 2f - holeGap - padding);
-            return Math.max(dp(20), maxPillW - padding * 2 - leadSize - innerGap);
+            return Math.max(dp(20), maxPillW - padding * 2 - leadWidth() - innerGap);
         }
 
         @Override
         float desiredWidth() {
             float w;
+            float lead = leadWidth();
             if (holeD > 0) {
-                float side = Math.max(leadSize, trailW);
+                float side = Math.max(lead, trailW);
                 w = holeD + 2f * (holeGap + side + padding);
             } else {
-                w = padding * 2f + leadSize + (trailW > 0 ? innerGap + trailW : 0f);
+                w = padding * 2f + lead + (trailW > 0 ? innerGap + trailW : 0f);
             }
             return Math.max(minPillW, Math.min(w, maxPillW));
         }
@@ -2017,6 +2131,17 @@ public final class IslandView extends View implements Choreographer.FrameCallbac
             float lead = Math.min(leadSize, s.height() * 0.8f);
             if (teams) {
                 drawTeams(c, s, midY, lead, alpha);
+                return;
+            }
+            if (item.recorder) {
+                float waveW = Math.min(recWaveWidth(), Math.max(dp(16), s.width() - padding * 2 - (trailW > 0 ? innerGap + trailW : 0f)));
+                drawRecWave(c, item, s.left + padding, midY, waveW, s.height() * 0.86f, alpha, false);
+                if (item.recorderSaved) {
+                    float r = checkSize() / 2f;
+                    drawCheck(c, s.right - padding - r, midY, r, alpha);
+                } else if (trailW > 0) {
+                    drawTrailing(c, item, trailText, s.right - padding, midY, trailW, alpha);
+                }
                 return;
             }
             drawLeadingMono(c, item, s.left + padding, midY, lead, alpha);
@@ -2101,6 +2226,11 @@ public final class IslandView extends View implements Choreographer.FrameCallbac
                 drawDrawable(c, scorerLogo(item), true, 0, b.centerX() - logo / 2f, b.centerY() - logo / 2f, logo, alpha, logo / 2f);
                 return;
             }
+            if (item.recorder) {
+                float ww = b.width() * 0.62f;
+                drawRecWave(c, item, b.centerX() - ww / 2f, b.centerY(), ww, b.height() * 0.5f, alpha, false);
+                return;
+            }
             drawLeadingMono(c, item, b.centerX() - size / 2f, b.centerY(), size, alpha);
         }
     }
@@ -2145,6 +2275,7 @@ public final class IslandView extends View implements Choreographer.FrameCallbac
                 dev.flexy.dynamicisland.xposed.XLog.e("RemoteViews card failed for " + it.packageName, t);
             }
         }
+        if (it.recorder && !it.recorderSaved) return new RecorderBody(it, w);
         if (it.metrics != null) return new MetricBody(it, w);
         boolean timerLike = it.kind == IslandItem.Kind.TIMER || it.kind == IslandItem.Kind.RECORDING
                 || it.kind == IslandItem.Kind.CALL || it.pulsingDot
@@ -3181,6 +3312,59 @@ public final class IslandView extends View implements Choreographer.FrameCallbac
         }
     }
 
+    private final class RecorderBody extends CardBody {
+        final float pad = dp(18);
+        final float bs = dp(54);
+        float buttonsLeft;
+
+        RecorderBody(IslandItem item, float w) {
+            super(item, w);
+            h = dp(88);
+            float right = w - pad;
+            for (int i = item.actions.size() - 1; i >= 0; i--) {
+                IslandItem.Action a = item.actions.get(i);
+                String t = a.title == null ? "" : a.title.toString().toLowerCase(java.util.Locale.ROOT);
+                Btn b = new Btn();
+                b.action = a;
+                b.circle = true;
+                if (t.contains("stop") || t.contains("стоп") || t.contains("останов") || t.contains("save") || t.contains("сохран")) {
+                    b.bg = BUTTON_RED;
+                    b.icon = a.icon;
+                    if (a.icon == null) b.glyph = Glyphs.STOP;
+                } else {
+                    b.bg = 0xFF3A3A3C;
+                    b.glyph = t.contains("resum") || t.contains("продолж") || t.contains("возоб") || t.contains("record") ? Glyphs.PLAY : Glyphs.PAUSE;
+                }
+                b.r.set(right - bs, (h - bs) / 2f, right, (h + bs) / 2f);
+                right -= bs + dp(12);
+                buttons.add(b);
+            }
+            buttonsLeft = right + dp(12);
+        }
+
+        @Override
+        void draw(Canvas c, float x, float y, float alpha, long el) {
+            float ra = rowAlpha(el, 0);
+            float a = alpha * ra;
+            float dy = (1f - ra) * dp(6);
+            float midY = y + h / 2f + dy;
+            String time = trailingString(item, false);
+            if (time == null && item.trailingText != null) time = item.trailingText.toString();
+            float timeRight = x + (buttons.isEmpty() ? w - pad : buttonsLeft - dp(14));
+            float timeW = 0f;
+            if (time != null) {
+                bigTimePaint.setColor(Colors.withAlpha(OaSource.RECORDER_RED, a));
+                timeW = bigTimePaint.measureText(time);
+                Paint.FontMetrics fm = bigTimePaint.getFontMetrics();
+                drawTime(c, item.key + "#rec", time, bigTimePaint, timeRight - timeW, midY - (fm.ascent + fm.descent) / 2f, false);
+            }
+            float waveLeft = x + pad;
+            float waveW = timeRight - timeW - dp(16) - waveLeft;
+            if (waveW > dp(24)) drawRecWave(c, item, waveLeft, midY, waveW, dp(54), a, true);
+            drawButtons(c, x, y + dy, a);
+        }
+    }
+
     private final class TimerBody extends CardBody {
         final float pad = dp(16);
         final float iconSize;
@@ -4201,14 +4385,14 @@ public final class IslandView extends View implements Choreographer.FrameCallbac
     private String trailingString(IslandItem item, boolean compact) {
         switch (item.trailing) {
             case TEXT:
-                if (compact && item.pausedMs >= 0) return formatTimeCentis(item.pausedMs);
+                if (item.pausedMs >= 0) return formatTimeCentis(item.pausedMs);
                 if (item.trailingText == null) return null;
                 String s = item.trailingText.toString();
                 return compact ? limitChars(s, IslandSettings.maxChars()) : s;
             case CHRONOMETER: {
                 long now = System.currentTimeMillis();
                 long ms = item.chronoCountDown ? item.chronoBase - now : now - item.chronoBase;
-                return item.chronoMillis && compact ? formatTimeCentis(ms) : formatTime(Math.max(0, ms));
+                return item.chronoMillis ? formatTimeCentis(ms) : formatTime(Math.max(0, ms));
             }
             default:
                 return null;

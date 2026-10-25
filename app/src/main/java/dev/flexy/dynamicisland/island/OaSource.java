@@ -69,7 +69,7 @@ final class OaSource {
                 if (!(list instanceof List)) continue;
                 for (Object d : (List<?>) list) {
                     if (d == null || !notificationKey.equals(Refl.get(d, "mNotiID"))) continue;
-                    if (Refl.getBool(d, "mIsMediaOngoingData", false)) return null;
+                    if (Refl.getBool(d, "mIsMediaOngoingData", false) && !VoiceLevels.PACKAGE.equals(Refl.get(d, "mPackageName"))) return null;
                     String pkg = (String) Refl.get(d, "mPackageName");
                     Object entry = Refl.get(d, "mNotificationEntry");
                     StatusBarNotification sbn = (StatusBarNotification) Refl.get(entry, "mSbn");
@@ -110,7 +110,7 @@ final class OaSource {
                     Set<String> hiddenByForeground, Collection<String> packages, boolean nowbarOnly) {
         if (d == null) return order;
         try {
-            if (Refl.getBool(d, "mIsMediaOngoingData", false)) return order;
+            if (Refl.getBool(d, "mIsMediaOngoingData", false) && !VoiceLevels.PACKAGE.equals(Refl.get(d, "mPackageName"))) return order;
             String key = (String) Refl.get(d, "mNotiID");
             String pkg = (String) Refl.get(d, "mPackageName");
             PendingIntent pi = (PendingIntent) Refl.get(d, "mPendingIntent");
@@ -280,7 +280,10 @@ final class OaSource {
         if (it.metrics != null) {
             int criticalIndex = extras.getInt("android.metrics.criticalIndex", -1);
             it.criticalMetric = criticalIndex >= 0 && criticalIndex < it.metrics.size() ? criticalIndex : -1;
-            if (it.criticalMetric >= 0) {
+            if (notEmpty(critical)) {
+                it.trailing = IslandItem.Trailing.TEXT;
+                it.trailingText = critical;
+            } else if (it.criticalMetric >= 0) {
                 IslandItem.Metric m = it.metrics.get(it.criticalMetric);
                 if (m.running()) {
                     it.trailing = IslandItem.Trailing.CHRONOMETER;
@@ -339,6 +342,14 @@ final class OaSource {
                 it.actions.add(new IslandItem.Action(a.title, load(a.getIcon(), pkg), a.actionIntent, null, destructive));
                 if (it.actions.size() == 3) break;
             }
+        }
+        if (VoiceLevels.PACKAGE.equals(pkg)) {
+            it.recorder = true;
+            it.kind = IslandItem.Kind.RECORDING;
+            it.accent = RECORDER_RED;
+            it.trailingColor = RECORDER_RED;
+            it.actions.removeIf(a -> isCancel(a.title));
+            while (it.actions.size() > 2) it.actions.remove(0);
         }
         return it;
     }
@@ -688,6 +699,14 @@ final class OaSource {
         } catch (Throwable t) {
             return null;
         }
+    }
+
+    static final int RECORDER_RED = 0xFFFF5A55;
+
+    private static boolean isCancel(CharSequence title) {
+        if (title == null) return false;
+        String s = title.toString().toLowerCase(java.util.Locale.ROOT);
+        return s.contains("cancel") || s.contains("отмен") || s.contains("discard") || s.contains("удал");
     }
 
     static boolean isDestructive(CharSequence title) {
