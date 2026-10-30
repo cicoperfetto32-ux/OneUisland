@@ -66,6 +66,14 @@ final class StatusBarIconFader {
         candidates.clear();
     }
 
+    private boolean keepDate;
+
+    void setKeepDate(boolean keep) {
+        if (keepDate == keep) return;
+        keepDate = keep;
+        dirty = true;
+    }
+
     void update(RectF coverage, boolean active) {
         if (!active && !islandActive && !dirty) return;
         islandActive = active;
@@ -106,7 +114,7 @@ final class StatusBarIconFader {
                     float split = iconRect.left + dateX * v.getScaleX();
                     DateFade df = dateFades.get(v);
                     float dm = df != null && df.target == 0f ? margin + hysteresis : margin;
-                    coverDate = vertical && iconRect.right > island.left - dm && split < island.right + dm;
+                    coverDate = !keepDate && vertical && iconRect.right > island.left - dm && split < island.right + dm;
                     cover = vertical && split > island.left - m && iconRect.left < island.right + m;
                 } else {
                     cover = vertical && iconRect.right > island.left - m && iconRect.left < island.right + m;

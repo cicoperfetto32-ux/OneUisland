@@ -289,7 +289,8 @@ final class ShadeLiveCards {
             setOnClickListener(v -> {
                 try {
                     IslandItem latest = item(key);
-                    if (!state.restored && !moved && latest != null && latest == downItem
+                    if (!state.restored && !moved && latest != null && downItem != null
+                            && (latest == downItem || (latest.claude && latest.key.equals(downItem.key)))
                             && renderer.shadeCardTap(latest, getWidth(), downX, downY)) {
                         performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK);
                     }
@@ -423,8 +424,8 @@ final class ShadeLiveCards {
             if (!state.restored && current != null && isAttachedToWindow() && isShown()
                     && getWindowVisibility() == VISIBLE && (current.trailing == IslandItem.Trailing.CHRONOMETER
                     || dev.flexy.dynamicisland.island.IslandView.hasRunningMetric(current)
-                    || current.kind == IslandItem.Kind.TIMER || current.kind == IslandItem.Kind.RECORDING)) {
-                if ((current.recorder && !current.recorderSaved && (current.trailing == IslandItem.Trailing.CHRONOMETER || dev.flexy.dynamicisland.island.VoiceLevels.get().live(SystemClock.uptimeMillis()))) || (current.chronoMillis && current.trailing == IslandItem.Trailing.CHRONOMETER)) {
+                    || current.kind == IslandItem.Kind.TIMER || current.kind == IslandItem.Kind.RECORDING || current.claude)) {
+                if (current.claude || (current.recorder && !current.recorderSaved && (current.trailing == IslandItem.Trailing.CHRONOMETER || dev.flexy.dynamicisland.island.VoiceLevels.get().live(SystemClock.uptimeMillis()))) || (current.chronoMillis && current.trailing == IslandItem.Trailing.CHRONOMETER)) {
                     postOnAnimation(tick);
                 } else {
                     postDelayed(tick, 1000 - SystemClock.uptimeMillis() % 1000);

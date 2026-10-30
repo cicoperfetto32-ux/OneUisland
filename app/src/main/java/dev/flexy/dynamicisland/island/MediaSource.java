@@ -104,6 +104,7 @@ final class MediaSource {
         MediaMetadata meta;
         long lastActive;
         IslandItem cached;
+        boolean cachedRecents;
         Bitmap cachedArt;
         int cachedAccent = 0xFFFFFFFF;
 
@@ -113,6 +114,9 @@ final class MediaSource {
             meta = c.getMetadata();
             if (isPlaying()) lastActive = SystemClock.uptimeMillis();
             c.registerCallback(this, main);
+            if (SpotifyRecents.PACKAGE.equals(c.getPackageName()) && IslandSettings.spotifyRecents()) {
+                SpotifyRecents.get().request(ctx, this::recentsChanged);
+            }
         }
 
         void release() {
@@ -157,9 +161,16 @@ final class MediaSource {
             onChange.run();
         }
 
+        void recentsChanged() {
+            cached = null;
+            onChange.run();
+        }
+
         IslandItem item() {
-            if (cached != null) return cached;
             String pkg = controller.getPackageName();
+            boolean recents = SpotifyRecents.PACKAGE.equals(pkg) && IslandSettings.spotifyRecents();
+            if (cached != null && cachedRecents == recents) return cached;
+            cachedRecents = recents;
             IslandItem it = new IslandItem("media:" + pkg);
             it.kind = IslandItem.Kind.MEDIA;
             it.isMedia = true;
@@ -228,6 +239,12 @@ final class MediaSource {
                     it.mediaCustom.add(new IslandItem.Action(ca.getName(), icon, null,
                             () -> tc.sendCustomAction(action, action.getExtras()), false));
                     if (it.mediaCustom.size() == 2) break;
+                }
+            }
+            if (recents) {
+                SpotifyRecents.get().request(ctx, this::recentsChanged);
+                for (SpotifyRecents.Entry e : SpotifyRecents.get().entries()) {
+                    it.mediaShortcuts.add(new IslandItem.Shortcut(e.title, e.art, () -> SpotifyRecents.get().play(ctx, e.id)));
                 }
             }
             it.postTime = lastActive;

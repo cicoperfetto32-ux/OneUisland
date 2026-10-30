@@ -30,7 +30,20 @@ public final class IslandItem {
         TEXT,
         CHRONOMETER,
         PROGRESS_RING,
-        WAVEFORM
+        WAVEFORM,
+        CLAUDE
+    }
+
+    public static final class Shortcut {
+        public final CharSequence title;
+        public final android.graphics.Bitmap art;
+        public final Runnable run;
+
+        public Shortcut(CharSequence title, android.graphics.Bitmap art, Runnable run) {
+            this.title = title;
+            this.art = art;
+            this.run = run;
+        }
     }
 
     public static final class Action {
@@ -102,6 +115,16 @@ public final class IslandItem {
     public PendingIntent contentIntent;
     public final List<Action> actions = new ArrayList<>();
 
+    public boolean claude;
+    public String claudeState;
+    public String[] claudeStages = new String[0];
+    public String claudeQuestion;
+    public int claudeTasks;
+    public int assistantStyle;
+    public Drawable[] claudeIcons = new Drawable[0];
+    public Drawable claudeTaskIcon;
+    public Drawable claudeSpark;
+
     public boolean isMedia;
     public boolean playing;
     public long mediaPosition = -1;
@@ -113,6 +136,7 @@ public final class IslandItem {
     public Runnable mediaNext;
     public Runnable mediaOpen;
     public final List<Action> mediaCustom = new ArrayList<>();
+    public final List<Shortcut> mediaShortcuts = new ArrayList<>();
     public Drawable appIcon;
     public android.widget.RemoteViews remoteView;
     public Drawable appGlyph;
@@ -123,6 +147,7 @@ public final class IslandItem {
     public int iconTint;
     public int trailingColor;
     public CharSequence overline;
+    public int overlineColor;
     public Runnable iconTap;
     public int toggle = -1;
     public boolean iconRight;
@@ -175,6 +200,7 @@ public final class IslandItem {
                 && pulsingDot == o.pulsingDot
                 && pillColor == o.pillColor
                 && torch == o.torch
+                && Objects.equals(claudeState, o.claudeState)
                 && recorder == o.recorder
                 && recorderSaved == o.recorderSaved
                 && trailingColor == o.trailingColor

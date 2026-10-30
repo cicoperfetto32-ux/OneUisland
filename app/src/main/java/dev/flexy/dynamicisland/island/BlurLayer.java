@@ -106,7 +106,7 @@ final class BlurLayer extends FrameLayout implements IslandView.BlurSink {
     };
 
     @Override
-    public void place(Object owner, RectF r, float corner, float alpha) {
+    public void place(Object owner, RectF r, float corner, float alpha, int radius) {
         if (getVisibility() != VISIBLE) setVisibility(VISIBLE);
         removeCallbacks(suspend);
         Slot s = slots.get(owner);
@@ -120,7 +120,7 @@ final class BlurLayer extends FrameLayout implements IslandView.BlurSink {
             slots.put(owner, s);
         }
         placed.add(owner);
-        s.update(r, corner, alpha);
+        s.update(r, corner, alpha, radius > 0 ? radius : RADIUS);
     }
 
     @Override
@@ -152,13 +152,16 @@ final class BlurLayer extends FrameLayout implements IslandView.BlurSink {
         private Object owner;
         private boolean blurSet;
         private float corner = -1f;
+        private int radius = RADIUS;
+        private int appliedRadius = -1;
 
         Slot(Context c) {
             super(c);
             setWillNotDraw(false);
         }
 
-        void update(RectF r, float c, float alpha) {
+        void update(RectF r, float c, float alpha, int blurRadius) {
+            radius = blurRadius;
             if (r.width() < 2 || r.height() < 2) {
                 hide();
                 return;
@@ -179,19 +182,21 @@ final class BlurLayer extends FrameLayout implements IslandView.BlurSink {
         }
 
         private void applyBlur(float c) {
-            if (Math.abs(c - corner) < 1f && blurSet) return;
-            if (blurSet && setDrawableCorner(c)) {
+            boolean same = blurSet && appliedRadius == radius;
+            if (Math.abs(c - corner) < 1f && same) return;
+            if (same && setDrawableCorner(c)) {
                 corner = c;
                 return;
             }
             try {
                 if (true) {
                     Object b = builderCtor.newInstance(0);
-                    setRadius.invoke(b, RADIUS);
+                    setRadius.invoke(b, radius);
                     setCorner.invoke(b, c);
-                    setColor.invoke(b, 0x14000000);
+                    setColor.invoke(b, radius == RADIUS ? 0x14000000 : 0);
                     semSetBlurInfo.invoke(this, build.invoke(b));
                     blurSet = true;
+                    appliedRadius = radius;
                 } else {
                     semSetCorner.invoke(this, c);
                 }

@@ -37,6 +37,13 @@ public final class Settings {
     public static final String GLASS_PILL_PHONE = "glass_pill_phone";
     public static final boolean DEF_GLASS_PILL = false;
 
+    public static final String DETAILED_BUBBLE = "detailed_bubble";
+    public static final boolean DEF_DETAILED_BUBBLE = false;
+    public static final String FROSTED_CARDS = "frosted_cards";
+    public static final boolean DEF_FROSTED_CARDS = false;
+    public static final String SPOTIFY_RECENTS = "spotify_recents";
+    public static final boolean DEF_SPOTIFY_RECENTS = false;
+
     private Settings() {
     }
 }

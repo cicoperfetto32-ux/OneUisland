@@ -55,6 +55,18 @@ final class IslandSettings {
         return values.getBoolean(large ? Settings.GLASS_PILL : Settings.GLASS_PILL_PHONE, Settings.DEF_GLASS_PILL);
     }
 
+    static boolean detailedBubble() {
+        return values.getBoolean(Settings.DETAILED_BUBBLE, Settings.DEF_DETAILED_BUBBLE);
+    }
+
+    static boolean frostedCards() {
+        return values.getBoolean(Settings.FROSTED_CARDS, Settings.DEF_FROSTED_CARDS);
+    }
+
+    static boolean spotifyRecents() {
+        return values.getBoolean(Settings.SPOTIFY_RECENTS, Settings.DEF_SPOTIFY_RECENTS);
+    }
+
     static void watch(Context ctx, Runnable onChanged) {
         try {
             HandlerThread thread = new HandlerThread("IslandSettings");

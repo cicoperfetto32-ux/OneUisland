@@ -17,6 +17,8 @@ import dev.flexy.dynamicisland.xposed.XLog;
 
 final class AlertSource {
     static final long SHOW_MS = 3000;
+    private static final long BATTERY_SHOW_MS = 5000;
+    private static final int PODS_LOW = 10;
     static final String LIBREPODS = "me.kavishdevar.librepods";
     private static final int LIBREPODS_ID = 2;
     private static final int DND_COLOR = 0xFF1B6CF7;
@@ -91,9 +93,13 @@ final class AlertSource {
     }
 
     private void show(IslandItem item) {
+        show(item, SHOW_MS);
+    }
+
+    private void show(IslandItem item, long ms) {
         if (item == null) return;
         current = item;
-        until = SystemClock.uptimeMillis() + SHOW_MS;
+        until = SystemClock.uptimeMillis() + ms;
         XLog.i("alert " + item.key + ": " + item.title + " " + item.trailingText);
         onChanged.run();
     }
@@ -182,7 +188,7 @@ final class AlertSource {
         if (before < 0 || plugged || !IslandSettings.alertBattery()) return;
         for (int threshold : LOW_LEVELS) {
             if (before > threshold && level <= threshold) {
-                show(batteryItem(level));
+                show(batteryItem(level), BATTERY_SHOW_MS);
                 return;
             }
         }
@@ -217,7 +223,7 @@ final class AlertSource {
                 btMain.post(() -> {
                     powerSavingBusy = false;
                     if (current != null && "alert:battery".equals(current.key)) {
-                        until = SystemClock.uptimeMillis() + SHOW_MS;
+                        until = SystemClock.uptimeMillis() + BATTERY_SHOW_MS;
                     }
                     refreshBatteryAlert();
                 });
@@ -457,13 +463,27 @@ final class AlertSource {
         return pods != null ? pods : btPods;
     }
 
+    private int podsPercent = -1;
+
     private void podsChanged(Pods before) {
         Pods now = shownPods();
-        if (now != null && !now.same(before) && IslandSettings.alertPods()) show(podsItem(now));
+        int was = podsPercent;
+        podsPercent = now == null ? -1 : now.percent();
+        if (now != null && was > PODS_LOW && podsPercent >= 0 && podsPercent <= PODS_LOW && IslandSettings.alertPods()) {
+            show(podsLow(podsItem(now)));
+        } else if (now != null && !now.same(before) && IslandSettings.alertPods()) show(podsItem(now));
         else if (now != null && current != null && current.key.equals("alert:pods")) {
+            boolean low = current.overlineColor != 0;
             current = podsItem(now);
+            if (low) podsLow(current);
             onChanged.run();
         }
+    }
+
+    private IslandItem podsLow(IslandItem it) {
+        it.overline = systemUiString("battery_low_title", "Low Battery");
+        it.overlineColor = 0xFFFF453A;
+        return it;
     }
 
 

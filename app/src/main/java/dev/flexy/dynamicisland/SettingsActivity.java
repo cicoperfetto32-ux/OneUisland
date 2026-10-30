@@ -72,6 +72,12 @@ public final class SettingsActivity extends Activity {
                 Settings.DEF_MAX_CHARS, v -> v >= Settings.NO_MAX_CHARS ? "No limit" : v + " chars", Settings.PREVIEW_LENGTH);
         link(island, "Island position", this::positionSummary, () ->
                 startActivity(new Intent(this, SettingsActivity.class).putExtra(EXTRA_SCREEN, SCREEN_POSITION)));
+        toggle(island, "Detailed second capsule", Settings.DETAILED_BUBBLE, Settings.DEF_DETAILED_BUBBLE);
+
+        gap(root);
+        LinearLayout cards = group(root, "Cards");
+        toggle(cards, "Frosted glass design", Settings.FROSTED_CARDS, Settings.DEF_FROSTED_CARDS);
+        toggle(cards, "Recent Spotify playlists", Settings.SPOTIFY_RECENTS, Settings.DEF_SPOTIFY_RECENTS);
 
         gap(root);
         LinearLayout alerts = group(root, "Alerts");
@@ -177,7 +183,6 @@ public final class SettingsActivity extends Activity {
             View b = g.findViewById(id);
             if (b == null || position(key, count) == (int) b.getTag()) return;
             prefs.edit().putInt(key, (int) b.getTag()).apply();
-            preview(g);
             refresh();
         });
         refreshers.add(() -> {
@@ -193,7 +198,11 @@ public final class SettingsActivity extends Activity {
             preview(b);
             refresh();
         });
-        refreshers.add(() -> glass.setVisibility(position(key, count) == Settings.POS_LEFT ? View.VISIBLE : View.GONE));
+        refreshers.add(() -> {
+            int pos = position(key, count);
+            boolean on = pos == Settings.POS_LEFT || (Settings.POSITION.equals(key) && pos == Settings.POS_CENTER);
+            glass.setVisibility(on ? View.VISIBLE : View.GONE);
+        });
     }
 
     private void preview(View anchor) {
